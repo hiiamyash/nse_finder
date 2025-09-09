@@ -1,3 +1,5 @@
+![Script Finder Banner](banner.png)
+
 # 🔎 Script Finder – Advanced Nmap Script Search Tool
 
 NSE Finder is a command-line tool built in **Bash** to help penetration testers and red teamers quickly find relevant [Nmap Scripting Engine (NSE)](https://nmap.org/book/nse.html) scripts.  
@@ -31,7 +33,7 @@ chmod +x script.sh
 
 ```bash
 sudo apt install nmap
-```Do you want me to also create a Sample Output table (with example results for one command) so the README shows exactly what to expect?
+```
 ## Default path:
 
 ```
