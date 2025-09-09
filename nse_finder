@@ -1,0 +1,181 @@
+#!/bin/bash
+
+# ==============================================================================
+# Script Finder - An advanced tool to find Nmap scripts
+#
+# Made By : hiiamyash (modified with multi-category support)
+#
+# ==============================================================================
+
+# --- Configuration ---
+SCRIPT_DB="/usr/share/nmap/scripts/script.db"
+SCRIPT_DIR=$(dirname "$SCRIPT_DB")
+
+# --- Colors ---
+BOLD="\e[1m"
+GREEN="\e[32m"
+CYAN="\e[36m"
+YELLOW="\e[33m"
+RED="\e[31m"
+MAGENTA="\e[35m"
+RESET="\e[0m"
+
+# --- Banner ---
+print_banner() {
+    echo -e "${BOLD}${CYAN}░███    ░██   ░██████   ░██████████        ░████ ░██                  ░██${RESET}"
+    echo -e "${BOLD}${GREEN}░████   ░██  ░██   ░██  ░██               ░██                         ░██${RESET}"
+    echo -e "${BOLD}${YELLOW}░██░██  ░██ ░██         ░██            ░████████ ░██░████████   ░████████  ░███████  ░██░████${RESET}"
+    echo -e "${BOLD}${CYAN}░██ ░██ ░██  ░████████  ░█████████        ░██    ░██░██    ░██ ░██    ░██ ░██    ░██ ░███${RESET}"
+    echo -e "${BOLD}${GREEN}░██  ░██░██         ░██ ░██               ░██    ░██░██    ░██ ░██    ░██ ░█████████ ░██${RESET}"
+    echo -e "${BOLD}${YELLOW}░██   ░████  ░██   ░██  ░██               ░██    ░██░██    ░██ ░██   ░███ ░██        ░██${RESET}"
+    echo -e "${BOLD}${CYAN}░██    ░███   ░██████   ░██████████       ░██    ░██░██    ░██  ░█████░██  ░███████  ░██${RESET}"
+    echo -e ""
+    echo -e "${BOLD}${MAGENTA}Made By : hiiamyash${RESET}\n"
+}
+
+# --- Usage ---
+usage() {
+    printf "\n${BOLD}${CYAN}%s${RESET}\n" "Script Finder - Nmap Script Search Tool"
+    printf "%s\n" "-------------------------------------------"
+    printf "%s\n" "Usage: $0 [options]"
+    printf "\n"
+    printf "%s\n" "MODES & OPTIONS:"
+    printf "%s\n" "  -k <keyword>       Search for a specific keyword in the script name or categories."
+    printf "%s\n" "  -c <categories>    Search for scripts within specific categories."
+    printf "%s\n" "                       Use comma for AND (e.g., \"discovery,default\")."
+    printf "%s\n" "  --cat-mode <mode>  Category filter mode: 'and' (default) or 'or'."
+    printf "%s\n" "  -h, --help         Display this help message."
+    printf "\n"
+
+    # List possible -k keywords
+    printf "${BOLD}${YELLOW}%-s${RESET}\n" "POSSIBLE KEYWORDS (-k):"
+    awk -F'"' '{print $2}' "$SCRIPT_DB" \
+      | sed 's/\.nse$//' \
+      | awk -F'-' '{print $1}' \
+      | sort -u \
+      | sed 's/^/   - /'
+    printf "\n"
+
+    # List possible -c categories
+    printf "${BOLD}${YELLOW}%-s${RESET}\n" "POSSIBLE CATEGORIES (-c):"
+    awk -F'"' '{for(i=4;i<=NF;i+=2) print $i}' "$SCRIPT_DB" | sort -u | sed 's/^/   - /'
+    printf "\n"
+
+    printf "%s\n" "EXAMPLES:"
+    printf "%s\n" "  Find SMB scripts in both 'discovery' AND 'default' categories:"
+    printf "%s\n" "    $0 -k smb -c discovery,default"
+    printf "\n"
+    printf "%s\n" "  Find SMB scripts in 'discovery' OR 'default' categories:"
+    printf "%s\n" "    $0 -k smb -c discovery,default --cat-mode or"
+    printf "\n"
+    exit 1
+}
+
+# --- Main Script ---
+
+print_banner
+
+# 1. Check for dependencies
+if [ ! -f "$SCRIPT_DB" ]; then
+    printf "${RED}%s${RESET}\n" "Error: Nmap script database not found at '$SCRIPT_DB'."
+    printf "%s\n" "Please ensure Nmap is installed correctly or update the SCRIPT_DB variable."
+    exit 1
+fi
+
+# 2. Handle input arguments
+if [ "$#" -eq 0 ]; then
+    usage
+fi
+
+KEYWORD=""
+CATEGORIES=""
+CAT_MODE="and"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -k)
+      KEYWORD="$2"
+      shift 2
+      ;;
+    -c)
+      CATEGORIES="$2"
+      shift 2
+      ;;
+    --cat-mode)
+      CAT_MODE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      ;;
+    -*)
+      printf "${RED}Invalid Option: %s${RESET}\n" "$1"
+      usage
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+# Ensure at least one search option
+if [ -z "$KEYWORD" ] && [ -z "$CATEGORIES" ]; then
+    printf "${RED}%s${RESET}\n" "Error: You must provide a search option (-k or -c)."
+    usage
+fi
+
+# 3. Build search command
+SEARCH_CMD="cat \"$SCRIPT_DB\""
+SEARCH_DESC="Searching for scripts"
+
+if [ -n "$KEYWORD" ]; then
+    SEARCH_CMD+=" | grep -i '$KEYWORD'"
+    SEARCH_DESC+=" matching keyword: '${KEYWORD}'"
+fi
+
+if [ -n "$CATEGORIES" ]; then
+    IFS=',' read -ra CAT_ARRAY <<< "$CATEGORIES"
+    if [ "$CAT_MODE" == "or" ]; then
+        # OR mode
+        REGEX=$(printf "|%s" "${CAT_ARRAY[@]}")
+        REGEX=${REGEX:1}
+        SEARCH_CMD+=" | grep -iE '\"($REGEX)\"'"
+        SEARCH_DESC+=" in categories (OR): '${CATEGORIES}'"
+    else
+        # AND mode
+        for cat in "${CAT_ARRAY[@]}"; do
+            SEARCH_CMD+=" | grep -i '\"$cat\"'"
+        done
+        SEARCH_DESC+=" in categories (AND): '${CATEGORIES}'"
+    fi
+fi
+
+printf "\n${CYAN}%s...${RESET}\n\n" "${SEARCH_DESC}"
+
+RAW_RESULTS=$(eval "$SEARCH_CMD")
+
+# 4. Display results
+if [ -n "$RAW_RESULTS" ]; then
+    printf "${BOLD}${CYAN}%-70s %s${RESET}\n" "Script Path" "Categories"
+    printf "%s\n" "--------------------------------------------------------------------------------------"
+    
+    echo "$RAW_RESULTS" | while IFS= read -r line; do
+        SCRIPT_FILENAME=$(echo "$line" | awk -F'"' '{print $2}')
+        FULL_PATH="${SCRIPT_DIR}/${SCRIPT_FILENAME}"
+
+        CATEGORIES_LIST=$(echo "$line" | awk -F'"' '{
+            categories = "{ ";
+            for (i=4; i<=NF; i+=2) {
+                categories = categories $i " ";
+            }
+            categories = categories "}";
+            print categories;
+        }')
+
+        printf "${GREEN}%-70s${RESET} ${YELLOW}%s${RESET}\n" "${FULL_PATH}" "${CATEGORIES_LIST}"
+    done
+else
+    printf "${RED}%s${RESET}\n" "No scripts found matching your criteria."
+fi
+
+printf "\n"
