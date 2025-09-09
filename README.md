@@ -25,9 +25,9 @@ Instead of digging through `/usr/share/nmap/scripts/` or grepping `script.db` ma
 Clone or download this repo, then make the script executable:
 
 ```bash
-git clone https://github.com/<yourusername>/script-finder.git
-cd script-finder
-chmod +x script.sh
+git clone https://github.com/hiiamyash/nse_finder.git
+cd nse_finder
+chmod +x nse_finder
 ```
 ## Ensure Nmap is installed and the script.db path is correct:
 
